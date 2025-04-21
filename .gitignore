@@ -1,0 +1,26 @@
+# 👉 프론트엔드 관련 무시 파일들
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# 👉 백엔드 관련 무시 파일들
+backend/target/
+backend/.idea/
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# 👉 application.properties 무시
+backend/src/main/resources/application.properties
+
+# 👉 OS 및 일반적인 무시 항목들
+.DS_Store
+Thumbs.db
+
+# 👉 로그 파일 무시
+*.log
+
+# 👉 IDE 설정 파일 무시
+.vscode/
+.idea/
+*.iml
