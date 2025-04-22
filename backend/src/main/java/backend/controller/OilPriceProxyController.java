@@ -25,15 +25,18 @@ public class OilPriceProxyController {
 
         String gasolineUrl = baseUrl + "&prodcd=B027";
         String dieselUrl = baseUrl + "&prodcd=D047";
+        String lpgUrl= baseUrl + "&prodcd=K015";
 
         String gasolineJson = restTemplate.getForObject(gasolineUrl, String.class);
         String dieselJson = restTemplate.getForObject(dieselUrl, String.class);
+        String lpgJson =restTemplate.getForObject(lpgUrl, String.class);
 
         ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> result = new HashMap<>();
         try {
             result.put("gasoline", mapper.readTree(gasolineJson).get("RESULT").get("OIL"));
             result.put("diesel", mapper.readTree(dieselJson).get("RESULT").get("OIL"));
+            result.put("lpg",mapper.readTree(lpgJson).get("RESULT").get("OIL"));
         } catch (JsonProcessingException e) {
             return ResponseEntity.status(500).body(Map.of("error", "데이터 파싱 오류"));
         }

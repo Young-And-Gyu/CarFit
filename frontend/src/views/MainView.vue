@@ -4,6 +4,7 @@ import axios from 'axios'
 
 const gasolinePrices = ref([])
 const dieselPrices = ref([])
+const lpgPrices= ref([])
 const loading = ref(true)
 const error = ref(null)
 const selectedRegion = ref('전국')
@@ -15,6 +16,7 @@ onMounted(async () => {
     console.log('API 응답:', response.data)
     gasolinePrices.value = response.data.gasoline
     dieselPrices.value = response.data.diesel
+    lpgPrices.value=response.data.lpg
     
     // 시스템의 다크모드 설정 확인
     isDarkMode.value = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -93,15 +95,15 @@ const filteredData = (data) => {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-6">
+          <div class="grid grid-cols-3 gap-6">
             <!-- 휘발유 카드 -->
-            <div class="bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-blue-900/20 dark:via-gray-800 dark:to-blue-900/20 
-                        p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-300 border border-blue-100 dark:border-blue-900/30">
+            <div class="bg-gradient-to-br from-yellow-50 via-white to-yellow-100 dark:from-yellow-900/20 dark:via-gray-800 dark:to-yellow-900/20 
+                        p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-300 border border-yellow-100 dark:border-yellow-900/30">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="text-2xl font-bold text-blue-900 dark:text-blue-400 flex items-center">
+                <h3 class="text-2xl font-bold text-yellow-900 dark:text-yellow-400 flex items-center">
                   <span class="mr-3 text-3xl">⛽</span>휘발유
                 </h3>
-                <div class="text-3xl font-extrabold text-blue-900 dark:text-blue-400">
+                <div class="text-3xl font-extrabold text-yellow-900 dark:text-yellow-400">
                   {{ Number(filteredData(gasolinePrices).PRICE || 0).toLocaleString() }}
                   <span class="text-lg ml-1">원</span>
                 </div>
@@ -134,6 +136,27 @@ const filteredData = (data) => {
                               'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': filteredData(dieselPrices).DIFF < 0}">
                   {{ filteredData(dieselPrices).DIFF > 0 ? '▲' : '▼' }} 
                   {{ Math.abs(Number(filteredData(dieselPrices).DIFF || 0)).toFixed(2) }}
+                </div>
+              </div>
+            </div>
+            <!-- LPG 카드 -->
+            <div class="bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-blue-900/20 dark:via-gray-800 dark:to-blue-900/20 
+                        p-6 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all duration-300 border border-blue-100 dark:border-blue-900/30">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-2xl font-bold text-blue-900 dark:text-blue-400 flex items-center">
+                  <span class="mr-3 text-3xl">⛽</span>LPG
+                </h3>
+                <div class="text-3xl font-extrabold text-blue-900 dark:text-blue-400">
+                  {{ Number(filteredData(lpgPrices).PRICE || 0).toLocaleString() }}
+                  <span class="text-lg ml-1">원</span>
+                </div>
+              </div>
+              <div class="flex justify-end">
+                <div class="text-lg font-semibold px-4 py-2 rounded-lg" 
+                     :class="{'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400': filteredData(lpgPrices).DIFF > 0, 
+                              'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': filteredData(lpgPrices).DIFF < 0}">
+                  {{ filteredData(lpgPrices).DIFF > 0 ? '▲' : '▼' }} 
+                  {{ Math.abs(Number(filteredData(lpgPrices).DIFF || 0)).toFixed(2) }}
                 </div>
               </div>
             </div>
