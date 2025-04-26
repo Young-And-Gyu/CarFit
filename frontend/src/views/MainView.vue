@@ -13,6 +13,7 @@ const isDarkMode = ref(false)
 const gasolineStations = ref([])
 
 const addressInput= ref('');
+const searchError = ref('');
 
 
 onMounted(async () => {
@@ -43,26 +44,42 @@ onMounted(async () => {
 })
 
 const searchGasStations = async () => {
+  // 입력값 검증
+  if (!addressInput.value.trim()) {
+    searchError.value = '주소를 입력해주세요.';
+    gasolineStations.value = [];
+    return;
+  }
+
   try {
+    searchError.value = ''; // 에러 메시지 초기화
     const { x, y } = await getCoordinatesFromBackend(addressInput.value);
 
     // 오피넷 API 요청 시 x, y 값을 사용하여 주유소 검색
     const response = await axios.get('http://localhost:8080/api/stations/nearby', {
       params: {
-        x: x, // KATEC 좌표계에서의 X값
-        y: y, // KATEC 좌표계에서의 Y값
-        radius: 5000, // 검색 반경
-        sort: 1 // 정렬 기준 (가장 가까운 순으로)
+        x: x,
+        y: y,
+        radius: 5000,
+        sort: 1,
+        limit: 10
       }
     });
 
     console.log('API 응답:', response.data);
 
-    gasolineStations.value = response.data.stations; // 받은 데이터를 상태에 저장
+    // 프론트엔드에서도 10개로 제한하여 처리
+    gasolineStations.value = response.data.stations.slice(0, 10);
+
+    // 검색 결과가 없는 경우
+    if (gasolineStations.value.length === 0) {
+      searchError.value = '주변에 주유소가 없습니다.';
+    }
 
   } catch (err) {
     console.error('API 오류:', err);
-    error.value = '데이터를 불러오는 중 오류가 발생했습니다.';
+    searchError.value = '주소를 찾을 수 없습니다. 올바른 주소를 입력해주세요.';
+    gasolineStations.value = [];
   } finally {
     loading.value = false;
   }
@@ -208,63 +225,116 @@ const filteredData = (data) => {
           </div>
         </div>
 
+        <div class="space-y-12">
+          <!-- 주유소 검색 섹션 -->
+          <div class="grid grid-cols-3 gap-6">
+            <div class="col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
+                <span class="mr-3">⛽</span>주변 주유소 검색
+              </h2>
+              <div class="flex gap-4">
+                <input 
+                  v-model="addressInput" 
+                  type="text" 
+                  placeholder="주소를 입력하세요" 
+                  class="flex-1 p-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 transition-all duration-200"
+                />
+                <button 
+                  @click="searchGasStations"
+                  class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center"
+                >
+                  <span class="mr-2">검색</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              <div v-if="searchError" class="mt-4 p-4 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 text-orange-700 dark:text-orange-300">
+                {{ searchError }}
+              </div>
+              <ul v-else class="mt-6 space-y-3">
+                <li 
+                  v-for="station in gasolineStations" 
+                  :key="station.UNI_ID"
+                  class="p-4 bg-white dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
+                >
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-900 dark:text-gray-100 font-medium">{{ station.OS_NM }}</span>
+                    <div class="flex items-center gap-4">
+                      <span class="text-gray-600 dark:text-gray-400">{{ station.DISTANCE }}m</span>
+                      <span class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ station.PRICE }}원</span>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            
+            <!-- 추가 정보 섹션 -->
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
+                <span class="mr-3">ℹ️</span>알아두세요
+              </h2>
+              <div class="space-y-4">
+                <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h3 class="font-semibold text-blue-900 dark:text-blue-400 mb-2">검색 반경</h3>
+                  <p class="text-blue-800 dark:text-blue-300">현재 위치에서 5km 이내의 주유소를 검색합니다.</p>
+                </div>
+                <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <h3 class="font-semibold text-green-900 dark:text-green-400 mb-2">정렬 기준</h3>
+                  <p class="text-green-800 dark:text-green-300">가장 가까운 주유소부터 표시됩니다.</p>
+                </div>
+                <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <h3 class="font-semibold text-purple-900 dark:text-purple-400 mb-2">표시 정보</h3>
+                  <p class="text-purple-800 dark:text-purple-300">주유소명, 거리, 유가 정보를 확인할 수 있습니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div>
-    <h2>⛽ 가솔린</h2>
-    <input v-model="addressInput" type="text" placeholder="주소를 입력하세요" />
-    <button @click="searchGasStations">검색</button>
-    <ul>
-      <li v-for="station in gasolineStations" :key="station.UNI_ID">
-        {{ station.OS_NM }} - {{ station.PRICE }}원 ({{ station.DISTANCE }}m)
-      </li>
-    </ul>
-
-    
-  </div>
-
-        <!-- 지역별 가격 비교 테이블 -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">지역별 가격 비교</h3>
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="bg-gray-50 dark:bg-gray-700">
-                  <th class="px-6 py-4 text-left text-gray-800 dark:text-gray-200 font-bold rounded-l-lg">지역</th>
-                  <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold">휘발유(원)</th>
-                  <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold">변동</th>
-                  <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold">경유(원)</th>
-                  <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold rounded-r-lg">변동</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                <tr v-for="(gasoline, index) in gasolinePrices" :key="index"
-                    class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
-                  <td class="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">{{ gasoline.SIDONM }}</td>
-                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-gray-100">
-                    {{ Number(gasoline.PRICE).toLocaleString() }}
-                  </td>
-                  <td class="px-6 py-4 text-right">
-                    <span class="px-3 py-1 rounded-full text-sm" 
-                          :class="{'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400': gasoline.DIFF > 0, 
-                                  'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': gasoline.DIFF < 0}">
-                      {{ gasoline.DIFF > 0 ? '▲' : '▼' }}
-                      {{ Math.abs(Number(gasoline.DIFF)).toFixed(2) }}
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-gray-100">
-                    {{ Number(dieselPrices[index]?.PRICE || 0).toLocaleString() }}
-                  </td>
-                  <td class="px-6 py-4 text-right">
-                    <span class="px-3 py-1 rounded-full text-sm" 
-                          :class="{'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400': dieselPrices[index]?.DIFF > 0, 
-                                  'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': dieselPrices[index]?.DIFF < 0}">
-                      {{ dieselPrices[index]?.DIFF > 0 ? '▲' : '▼' }}
-                      {{ Math.abs(Number(dieselPrices[index]?.DIFF || 0)).toFixed(2) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- 지역별 가격 비교 테이블 -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">지역별 가격 비교</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead>
+                  <tr class="bg-gray-50 dark:bg-gray-700">
+                    <th class="px-6 py-4 text-left text-gray-800 dark:text-gray-200 font-bold rounded-l-lg">지역</th>
+                    <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold">휘발유(원)</th>
+                    <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold">변동</th>
+                    <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold">경유(원)</th>
+                    <th class="px-6 py-4 text-right text-gray-800 dark:text-gray-200 font-bold rounded-r-lg">변동</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                  <tr v-for="(gasoline, index) in gasolinePrices" :key="index"
+                      class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200">
+                    <td class="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">{{ gasoline.SIDONM }}</td>
+                    <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-gray-100">
+                      {{ Number(gasoline.PRICE).toLocaleString() }}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                      <span class="px-3 py-1 rounded-full text-sm" 
+                            :class="{'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400': gasoline.DIFF > 0, 
+                                    'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': gasoline.DIFF < 0}">
+                        {{ gasoline.DIFF > 0 ? '▲' : '▼' }}
+                        {{ Math.abs(Number(gasoline.DIFF)).toFixed(2) }}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 text-right font-semibold text-gray-900 dark:text-gray-100">
+                      {{ Number(dieselPrices[index]?.PRICE || 0).toLocaleString() }}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                      <span class="px-3 py-1 rounded-full text-sm" 
+                            :class="{'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400': dieselPrices[index]?.DIFF > 0, 
+                                    'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400': dieselPrices[index]?.DIFF < 0}">
+                        {{ dieselPrices[index]?.DIFF > 0 ? '▲' : '▼' }}
+                        {{ Math.abs(Number(dieselPrices[index]?.DIFF || 0)).toFixed(2) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
