@@ -10,6 +10,11 @@ const error = ref(null)
 const selectedRegion = ref('전국')
 const isDarkMode = ref(false)
 
+const gasolineStations = ref([])
+
+const addressInput= ref('');
+
+
 onMounted(async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/oil')
@@ -36,6 +41,46 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+const searchGasStations = async () => {
+  try {
+    const { x, y } = await getCoordinatesFromBackend(addressInput.value);
+
+    // 오피넷 API 요청 시 x, y 값을 사용하여 주유소 검색
+    const response = await axios.get('http://localhost:8080/api/stations/nearby', {
+      params: {
+        x: x, // KATEC 좌표계에서의 X값
+        y: y, // KATEC 좌표계에서의 Y값
+        radius: 5000, // 검색 반경
+        sort: 1 // 정렬 기준 (가장 가까운 순으로)
+      }
+    });
+
+    console.log('API 응답:', response.data);
+
+    gasolineStations.value = response.data.stations; // 받은 데이터를 상태에 저장
+
+  } catch (err) {
+    console.error('API 오류:', err);
+    error.value = '데이터를 불러오는 중 오류가 발생했습니다.';
+  } finally {
+    loading.value = false;
+  }
+};
+
+
+const getCoordinatesFromBackend = async (address) => {
+  try {
+    const res = await axios.get('http://localhost:8080/api/geocode', {
+      params: { address }
+    });
+    console.log('좌표 데이터:', res.data);
+    return res.data; // { x: "...", y: "..." }를 리턴
+  } catch (error) {
+    console.error("좌표 변환 에러", error);
+    throw error;
+  }
+};
 
 const filteredData = (data) => {
   if (selectedRegion.value === '전국') {
@@ -162,6 +207,20 @@ const filteredData = (data) => {
             </div>
           </div>
         </div>
+
+
+        <div>
+    <h2>⛽ 가솔린</h2>
+    <input v-model="addressInput" type="text" placeholder="주소를 입력하세요" />
+    <button @click="searchGasStations">검색</button>
+    <ul>
+      <li v-for="station in gasolineStations" :key="station.UNI_ID">
+        {{ station.OS_NM }} - {{ station.PRICE }}원 ({{ station.DISTANCE }}m)
+      </li>
+    </ul>
+
+    
+  </div>
 
         <!-- 지역별 가격 비교 테이블 -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
