@@ -14,6 +14,18 @@ const gasolineStations = ref([])
 
 const addressInput= ref('');
 const searchError = ref('');
+const insuranceResult = ref(null);
+const insuranceForm = ref({
+  age: 30,
+  carType: 'SUV',
+  accidentCount: 0,
+  options: {
+    blackBox: false,
+    mileage: false,
+    driverScopeLimited: false,
+    hasChild: false
+  }
+});
 
 
 onMounted(async () => {
@@ -96,6 +108,25 @@ const getCoordinatesFromBackend = async (address) => {
   } catch (error) {
     console.error("좌표 변환 에러", error);
     throw error;
+  }
+};
+
+const sendInsuranceData = async () => {
+  try {
+    const response = await axios.post('http://localhost:8080/api/calculate-insurance', insuranceForm.value);
+    console.log('서버 응답 데이터:', response.data);
+    
+    if (response.data && typeof response.data.insuranceFee === 'number') {
+      insuranceResult.value = response.data;
+      console.log('계산된 보험료:', insuranceResult.value.insuranceFee);
+    } else {
+      console.error('유효하지 않은 응답 형식:', response.data);
+      searchError.value = '보험료 계산 결과가 올바르지 않습니다.';
+    }
+  } catch (error) {
+    console.error('요청 실패:', error);
+    searchError.value = '보험료 계산 중 오류가 발생했습니다.';
+    insuranceResult.value = null;
   }
 };
 
@@ -272,20 +303,84 @@ const filteredData = (data) => {
             <!-- 추가 정보 섹션 -->
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
               <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
-                <span class="mr-3">ℹ️</span>알아두세요
+                <span class="mr-3">ℹ️</span>보험료 계산
               </h2>
-              <div class="space-y-4">
-                <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h3 class="font-semibold text-blue-900 dark:text-blue-400 mb-2">검색 반경</h3>
-                  <p class="text-blue-800 dark:text-blue-300">현재 위치에서 5km 이내의 주유소를 검색합니다.</p>
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">나이</label>
+                  <input 
+                    v-model="insuranceForm.age" 
+                    type="number" 
+                    class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                    min="19"
+                    max="100"
+                  />
                 </div>
-                <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <h3 class="font-semibold text-green-900 dark:text-green-400 mb-2">정렬 기준</h3>
-                  <p class="text-green-800 dark:text-green-300">가장 가까운 주유소부터 표시됩니다.</p>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">차종</label>
+                  <select 
+                    v-model="insuranceForm.carType" 
+                    class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  >
+                    <option value="SUV">SUV</option>
+                    <option value="세단">세단</option>
+                    <option value="경차">경차</option>
+                    <option value="트럭">트럭</option>
+                  </select>
                 </div>
-                <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <h3 class="font-semibold text-purple-900 dark:text-purple-400 mb-2">표시 정보</h3>
-                  <p class="text-purple-800 dark:text-purple-300">주유소명, 거리, 유가 정보를 확인할 수 있습니다.</p>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">사고 횟수</label>
+                  <input 
+                    v-model="insuranceForm.accidentCount" 
+                    type="number" 
+                    class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                    min="0"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      v-model="insuranceForm.options.blackBox" 
+                      class="mr-2"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">블랙박스</span>
+                  </label>
+                  <label class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      v-model="insuranceForm.options.mileage" 
+                      class="mr-2"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">주행거리 제한</span>
+                  </label>
+                  <label class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      v-model="insuranceForm.options.driverScopeLimited" 
+                      class="mr-2"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">운전자 범위 제한</span>
+                  </label>
+                  <label class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      v-model="insuranceForm.options.hasChild" 
+                      class="mr-2"
+                    />
+                    <span class="text-sm text-gray-700 dark:text-gray-300">자녀 동승</span>
+                  </label>
+                </div>
+                <button 
+                  @click="sendInsuranceData"
+                  class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200"
+                >
+                  보험료 계산하기
+                </button>
+                <div v-if="insuranceResult" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p class="text-lg font-semibold text-blue-900 dark:text-blue-400">
+                    예상 보험료: {{ insuranceResult?.insuranceFee?.toLocaleString() || '0' }}원
+                  </p>
                 </div>
               </div>
             </div>
