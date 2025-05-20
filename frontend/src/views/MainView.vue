@@ -258,8 +258,8 @@ const filteredData = (data) => {
 
         <div class="space-y-12">
           <!-- 주유소 검색 섹션 -->
-          <div class="grid grid-cols-3 gap-6">
-            <div class="col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div class="grid grid-cols-6 gap-6">
+            <div class="col-span-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
               <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
                 <span class="mr-3">⛽</span>주변 주유소 검색
               </h2>
@@ -268,6 +268,7 @@ const filteredData = (data) => {
                   v-model="addressInput" 
                   type="text" 
                   placeholder="주소를 입력하세요" 
+                  @keyup.enter="searchGasStations"
                   class="flex-1 p-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 transition-all duration-200"
                 />
                 <button 
@@ -301,7 +302,7 @@ const filteredData = (data) => {
             </div>
             
             <!-- 추가 정보 섹션 -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <div class="col-span-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
               <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
                 <span class="mr-3">ℹ️</span>보험료 계산
               </h2>
