@@ -14,16 +14,29 @@ const gasolineStations = ref([])
 
 const addressInput= ref('');
 const searchError = ref('');
+const insuranceError = ref('');
 const insuranceResult = ref(null);
 const insuranceForm = ref({
-  age: 30,
-  carType: 'SUV',
+  age: '',
+  gender: 'MALE',
+  carType: '',
+  carPrice: null,
+  engineSize: null,
+  carYear: '',
+  annualMileage: null,
+  licenseYear: '',
   accidentCount: 0,
+  drunkDriving: false,
+  trafficViolations: 0,
+  region: '',
+  isDirect: false,
   options: {
     blackBox: false,
-    mileage: false,
-    driverScopeLimited: false,
-    hasChild: false
+    hasChild: false,
+    hasMultipleChildren: false,
+    adas: false,
+    isMilitaryDriver: false,
+    usesPublicTransport: false
   }
 });
 
@@ -113,19 +126,59 @@ const getCoordinatesFromBackend = async (address) => {
 
 const sendInsuranceData = async () => {
   try {
-    const response = await axios.post('http://localhost:8080/api/calculate-insurance', insuranceForm.value);
-    console.log('서버 응답 데이터:', response.data);
-    
-    if (response.data && typeof response.data.insuranceFee === 'number') {
-      insuranceResult.value = response.data;
-      console.log('계산된 보험료:', insuranceResult.value.insuranceFee);
-    } else {
-      console.error('유효하지 않은 응답 형식:', response.data);
-      searchError.value = '보험료 계산 결과가 올바르지 않습니다.';
+    // 필수 필드 유효성 검사
+    if (!insuranceForm.value.age || 
+        !insuranceForm.value.carType || 
+        !insuranceForm.value.carPrice || 
+        !insuranceForm.value.engineSize || 
+        !insuranceForm.value.carYear || 
+        !insuranceForm.value.annualMileage || 
+        !insuranceForm.value.licenseYear || 
+        !insuranceForm.value.region) {
+      insuranceError.value = '모든 필수 항목을 입력해주세요.';
+      return;
     }
+
+    // annualMileage가 숫자인지 확인
+    const annualMileage = parseInt(insuranceForm.value.annualMileage);
+    if (isNaN(annualMileage)) {
+      insuranceError.value = '연간 주행거리는 숫자로 입력해주세요.';
+      return;
+    }
+
+    const requestData = {
+      age: parseInt(insuranceForm.value.age),
+      gender: insuranceForm.value.gender || 'MALE',
+      carType: insuranceForm.value.carType,
+      carPrice: parseInt(insuranceForm.value.carPrice),
+      engineSize: parseInt(insuranceForm.value.engineSize),
+      carYear: parseInt(insuranceForm.value.carYear),
+      annualMileage: annualMileage, // 검증된 값 사용
+      licenseYear: parseInt(insuranceForm.value.licenseYear),
+      accidentCount: parseInt(insuranceForm.value.accidentCount || '0'),
+      drunkDriving: insuranceForm.value.drunkDriving || false,
+      trafficViolations: parseInt(insuranceForm.value.trafficViolations || '0'),
+      region: insuranceForm.value.region,
+      isDirect: insuranceForm.value.isDirect || false,
+      options: {
+        blackBox: insuranceForm.value.options.blackBox || false,
+        hasChild: insuranceForm.value.options.hasChild || false,
+        hasMultipleChildren: insuranceForm.value.options.hasMultipleChildren || false,
+        adas: insuranceForm.value.options.adas || false,
+        isMilitaryDriver: insuranceForm.value.options.isMilitaryDriver || false,
+        usesPublicTransport: insuranceForm.value.options.usesPublicTransport || false
+      }
+    };
+
+    console.log('보내는 데이터:', requestData); // 디버깅용 
+
+    const response = await axios.post('http://localhost:8080/api/calculate-insurance', requestData);
+    console.log('백엔드 응답 데이터:', response.data); // 응답 데이터 확인용 로그
+    insuranceResult.value = response.data;
+    insuranceError.value = ''; // 성공 시 에러 메시지 초기화
   } catch (error) {
-    console.error('요청 실패:', error);
-    searchError.value = '보험료 계산 중 오류가 발생했습니다.';
+    console.error('보험료 계산 중 오류 발생:', error);
+    insuranceError.value = '보험료 계산 중 오류가 발생했습니다.';
     insuranceResult.value = null;
   }
 };
@@ -147,6 +200,23 @@ const filteredData = (data) => {
   }
   return data.find(item => item.SIDONM === selectedRegion.value) || data[0] || {}
 }
+
+const formatNumber = (value) => {
+  if (!value) return '';
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
+const unformatNumber = (value) => {
+  if (!value) return '';
+  return value.replace(/,/g, '');
+};
+
+const handlePriceInput = (event) => {
+  const unformatted = unformatNumber(event.target.value);
+  const numeric = unformatted.replace(/[^\d]/g, '');
+  insuranceForm.value.carPrice = numeric;
+  event.target.value = formatNumber(numeric);
+};
 </script>
 
 <template>
@@ -306,82 +376,261 @@ const filteredData = (data) => {
               <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
                 <span class="mr-3">ℹ️</span>보험료 계산
               </h2>
-              <div class="space-y-3">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">나이</label>
-                  <input 
-                    v-model="insuranceForm.age" 
-                    type="number" 
-                    class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                    min="19"
-                    max="100"
-                  />
+              <div class="space-y-4">
+                <!-- 에러 메시지 표시 -->
+                <div v-if="insuranceError" class="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-300">
+                  {{ insuranceError }}
                 </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">차종</label>
-                  <select 
-                    v-model="insuranceForm.carType" 
-                    class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                  >
-                    <option value="SUV">SUV</option>
-                    <option value="세단">세단</option>
-                    <option value="경차">경차</option>
-                    <option value="트럭">트럭</option>
-                  </select>
+                
+                <!-- 기본 정보 -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">나이</label>
+                    <input 
+                      v-model="insuranceForm.age" 
+                      type="number" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                      min="18"
+                      max="100"
+                      placeholder="나이"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">성별</label>
+                    <select 
+                      v-model="insuranceForm.gender" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                    >
+                      <option value="MALE">남성</option>
+                      <option value="FEMALE">여성</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">운전경력</label>
+                    <input 
+                      v-model="insuranceForm.licenseYear" 
+                      type="number" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                      min="0"
+                      placeholder="면허 취득 기간"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">사고 이력</label>
+                    <input 
+                      v-model="insuranceForm.accidentCount" 
+                      type="number" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                      min="0"
+                      placeholder="사고 횟수"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">사고 횟수</label>
-                  <input 
-                    v-model="insuranceForm.accidentCount" 
-                    type="number" 
-                    class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                    min="0"
-                  />
+
+                <!-- 차량 정보 -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">차종</label>
+                    <select 
+                      v-model="insuranceForm.carType" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                    >
+                      <option value="경차">경차</option>
+                      <option value="소형차">소형차</option>
+                      <option value="중형차">중형차</option>
+                      <option value="대형차">대형차</option>
+                      <option value="SUV">SUV</option>
+                      <option value="트럭">트럭</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">배기량 (cc)</label>
+                    <input 
+                      v-model="insuranceForm.engineSize" 
+                      type="number" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                      placeholder="배기량"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">차량 가격</label>
+                    <input 
+                      :value="formatNumber(insuranceForm.carPrice)"
+                      @input="handlePriceInput"
+                      type="text"
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                      min="0"
+                      placeholder="차량 가격"
+                    />
+                  </div>
+                   <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">연간 주행거리 (km)</label>
+                    <input 
+                      v-model="insuranceForm.annualMileage" 
+                      type="number" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                      min="0"
+                      placeholder="연간 주행거리"
+                    />
+                  </div>
+                   <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">연식</label>
+                    <input 
+                      v-model="insuranceForm.carYear" 
+                      type="number" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                      min="2000"
+                      :max="new Date().getFullYear()"
+                      placeholder="차량 연식"
+                    />
+                  </div>
+                   <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">지역</label>
+                    <select 
+                      v-model="insuranceForm.region" 
+                      class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                    >
+                      <option value="서울">서울</option>
+                      <option value="부산">부산</option>
+                      <option value="인천">인천</option>
+                      <option value="대구">대구</option>
+                      <option value="광주">광주</option>
+                      <option value="대전">대전</option>
+                      <option value="울산">울산</option>
+                      <option value="세종">세종</option>
+                      <option value="경기">경기</option>
+                      <option value="강원">강원</option>
+                      <option value="충북">충북</option>
+                      <option value="충남">충남</option>
+                      <option value="전북">전북</option>
+                      <option value="전남">전남</option>
+                      <option value="경북">경북</option>
+                      <option value="경남">경남</option>
+                      <option value="제주">제주</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="space-y-2">
-                  <label class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      v-model="insuranceForm.options.blackBox" 
-                      class="mr-2"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">블랙박스</span>
-                  </label>
-                  <label class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      v-model="insuranceForm.options.mileage" 
-                      class="mr-2"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">주행거리 제한</span>
-                  </label>
-                  <label class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      v-model="insuranceForm.options.driverScopeLimited" 
-                      class="mr-2"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">운전자 범위 제한</span>
-                  </label>
-                  <label class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      v-model="insuranceForm.options.hasChild" 
-                      class="mr-2"
-                    />
-                    <span class="text-sm text-gray-700 dark:text-gray-300">자녀 동승</span>
-                  </label>
+
+                <!-- 할인 옵션 -->
+                <div class="space-y-3">
+                  <h3 class="text-lg font-semibold text-gray-900 dark:text-white">추가 옵션</h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.drunkDriving" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">음주운전 이력</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.isDirect" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">다이렉트 가입</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.options.blackBox" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">블랙박스 설치</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.options.hasChild" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">만 6세 이하 자녀 1명</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.options.hasMultipleChildren" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">자녀 2명 이상</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.options.adas" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">ADAS 장착</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.options.isMilitaryDriver" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">군 운전병</span>
+                    </label>
+                    <label class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        v-model="insuranceForm.options.usesPublicTransport" 
+                        class="mr-2"
+                      />
+                      <span class="text-sm text-gray-700 dark:text-gray-300">대중교통 이용</span>
+                    </label>
+                  </div>
                 </div>
+
                 <button 
                   @click="sendInsuranceData"
-                  class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200"
+                  class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200"
                 >
                   보험료 계산하기
                 </button>
-                <div v-if="insuranceResult" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p class="text-lg font-semibold text-blue-900 dark:text-blue-400">
-                    예상 보험료: {{ insuranceResult?.insuranceFee?.toLocaleString() || '0' }}원
+
+                <!-- 안내 문구 -->
+                <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <p class="text-sm text-gray-600 dark:text-gray-400">
+                    ※ 본 계산은 간이 계산으로, 실제 보험료와 차이가 있을 수 있습니다. 정확한 보험료는 보험사 상담을 통해 확인하시기 바랍니다.
                   </p>
+                </div>
+
+                <!-- 계산 결과 -->
+                <div v-if="insuranceResult" class="mt-4 space-y-4">
+                  <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p class="text-xl font-bold text-blue-900 dark:text-blue-400">
+                      예상 보험료: {{ insuranceResult.insuranceFee?.toLocaleString() || '0' }}원
+                    </p>
+                  </div>
+                  
+                  <!-- 상세 내역 -->
+                  <div class="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">상세 내역</h4>
+                    <div class="space-y-2">
+                      <p class="text-sm text-gray-700 dark:text-gray-300">
+                        기본 보험료: {{ insuranceResult.details?.baseInsurance?.toLocaleString() || '0' }}원
+                      </p>
+                      <div class="text-sm">
+                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-1">할증 항목:</p>
+                        <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
+                          <li>운전자 위험도: {{ insuranceResult.details?.driverRisk?.toFixed(1) || '0' }}%</li>
+                          <li>지역 위험도: {{ insuranceResult.details?.regionRisk?.toFixed(1) || '0' }}%</li>
+                        </ul>
+                      </div>
+                      <div v-if="insuranceResult.details?.appliedDiscounts && Object.keys(insuranceResult.details.appliedDiscounts).length > 0" class="text-sm">
+                        <p class="font-medium text-gray-700 dark:text-gray-300 mb-1">적용된 할인:</p>
+                        <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400">
+                          <li v-for="(discountPercentage, discountName) in insuranceResult.details.appliedDiscounts" :key="discountName">
+                            {{ discountName }}: {{ (discountPercentage * 100).toFixed(1) }}%
+                          </li>
+                        </ul>
+                      </div>
+                      <p class="text-sm text-gray-700 dark:text-gray-300">
+                        총 할인율: {{ (insuranceResult.details?.totalDiscount || 0).toFixed(1) }}%
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
