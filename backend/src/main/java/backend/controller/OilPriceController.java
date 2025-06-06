@@ -12,7 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-public class OilPriceProxyController {
+public class OilPriceController {
 
     @Value("${opinet.api.key}")
     private String apiKey;
