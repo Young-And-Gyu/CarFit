@@ -43,11 +43,13 @@ const insuranceForm = ref({
 
 onMounted(async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/oil')
+    const response = await axios.get('http://localhost:8080/api/oil', {
+      withCredentials: true  
+    })
     console.log('API 응답:', response.data)
     gasolinePrices.value = response.data.gasoline
     dieselPrices.value = response.data.diesel
-    lpgPrices.value=response.data.lpg
+    lpgPrices.value = response.data.lpg
     
     // 시스템의 다크모드 설정 확인
     isDarkMode.value = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -67,7 +69,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
 const searchGasStations = async () => {
   // 입력값 검증
   if (!addressInput.value.trim()) {

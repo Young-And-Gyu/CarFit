@@ -1,11 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
 const userId = ref('')
 const password = ref('')
 const isDarkMode = ref(false)
+const loginError = ref('')
+const isLoading = ref(false)
 
 const emit = defineEmits(['login'])
 
@@ -23,11 +26,43 @@ onMounted(() => {
   document.documentElement.classList.toggle('dark', isDarkMode.value)
 })
 
-const handleLogin = () => {
-  emit('login', {
-    userId: userId.value,
-    password: password.value
-  })
+const handleLogin = async () => {
+  try {
+    isLoading.value = true
+    loginError.value = ''
+
+    console.log('로그인 요청 데이터:', {
+      userId: userId.value,
+      password: password.value
+    })
+
+    const response = await axios.post("http://localhost:8080/user/login", {
+      userId: userId.value,
+      password: password.value
+    }, {
+      withCredentials: true
+    });
+
+    console.log('로그인 응답:', response)
+
+    if (response.status === 200) {
+      emit('login', response.data)
+      router.push('/')
+    }
+  } catch (error) {
+    console.error('로그인 에러:', error)
+    console.error('에러 응답 데이터:', error.response?.data)
+    console.error('에러 상태 코드:', error.response?.status)
+    console.error('에러 헤더:', error.response?.headers)
+    
+    if (error.response?.status === 401) {
+      loginError.value = '아이디 또는 비밀번호가 일치하지 않습니다.'
+    } else {
+      loginError.value = error.response?.data?.message || '로그인 중 오류가 발생했습니다.'
+    }
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const goToSignup = () => {
@@ -80,12 +115,14 @@ const goToSignup = () => {
           <div class="space-y-3">
             <button
               type="submit"
+              :disabled="isLoading"
               class="group relative w-full flex justify-center py-3 px-4 border border-transparent
                      text-sm font-medium rounded-lg text-white bg-orange-500 hover:bg-orange-600
                      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500
-                     transition-colors duration-200"
+                     transition-colors duration-200
+                     disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              로그인
+              {{ isLoading ? '로그인 중...' : '로그인' }}
             </button>
             <button
               type="button"
@@ -99,6 +136,10 @@ const goToSignup = () => {
               회원가입
             </button>
           </div>
+          
+          <p v-if="loginError" class="mt-2 text-sm text-red-500 text-center">
+            {{ loginError }}
+          </p>
         </form>
       </div>
     </div>

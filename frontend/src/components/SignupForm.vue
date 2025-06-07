@@ -1,19 +1,23 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import axios from 'axios'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const userId = ref('')
+const userIdError = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
 const name = ref('')
+const email = ref('')
 const address = ref('')
 const birthDate = ref('')
 const allAgreed = ref(false)
-const agreements = ref({
-  terms: false,
-  privacy: false,
-  marketing: false,
-  age: false
-})
+const termsAgreed = ref(false)
+const privacyAgreed = ref(false)
+const marketingAgreed = ref(false)
+const isLoading = ref(false)
+const signupError = ref('')
 
 const emit = defineEmits(['signup'])
 
@@ -28,34 +32,81 @@ onMounted(() => {
   })
 })
 
-const handleSignup = () => {
-  if (password.value !== passwordConfirm.value) {
-    alert('비밀번호가 일치하지 않습니다.')
-    return
+const validateUserId = () => {
+  const userIdRegex = /^[a-zA-Z0-9]{6,}$/
+  if (!userId.value) {
+    userIdError.value = '아이디를 입력해주세요.'
+    return false
   }
-  
-  emit('signup', {
-    userId: userId.value,
-    password: password.value,
-    name: name.value,
-    address: address.value,
-    birthDate: birthDate.value,
-    agreements: agreements.value
-  })
+  if (!userIdRegex.test(userId.value)) {
+    userIdError.value = '아이디는 6자 이상의 영문 혹은 숫자 조합이어야 합니다.'
+    return false
+  }
+  userIdError.value = ''
+  return true
+}
+
+const handleSignup = async () => {
+  try {
+    if (!validateUserId()) {
+      return
+    }
+    if (password.value !== passwordConfirm.value) {
+      alert('비밀번호가 일치하지 않습니다.')
+      return
+    }
+
+    isLoading.value = true
+    signupError.value = ''
+
+    const response = await axios.post("http://localhost:8080/user/signup", {
+      userId: userId.value,
+      password: password.value,
+      name: name.value,
+      email: email.value,
+      address: address.value,
+      birthDate: birthDate.value,
+      termsAgreed: termsAgreed.value,
+      privacyAgreed: privacyAgreed.value,
+      marketingAgreed: marketingAgreed.value
+    }, {
+      withCredentials: true
+    });
+
+    if (response.status === 200) {
+      alert('회원가입이 완료되었습니다.')
+      emit('signup', response.data)
+      router.push('/login')
+    } else {
+      signupError.value = response.data || '회원가입 중 오류가 발생했습니다.'
+    }
+  } catch (error) {
+    console.error('회원가입 에러:', error)
+    console.error('에러 응답 데이터:', error.response?.data)
+    console.error('에러 상태 코드:', error.response?.status)
+    
+    if (error.response?.status === 400) {
+      userIdError.value = '이미 존재하는 아이디입니다.'
+    } 
+    else {
+      signupError.value = error.response?.data?.message || '회원가입 중 오류가 발생했습니다.'
+    }
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const toggleAllAgreements = () => {
-  const isAllTrue = Object.values(agreements.value).every(value => value === true)
+  const isAllTrue = termsAgreed.value && privacyAgreed.value && marketingAgreed.value
   
-  agreements.value.terms = !isAllTrue
-  agreements.value.privacy = !isAllTrue
-  agreements.value.marketing = !isAllTrue
-  agreements.value.age = !isAllTrue
+  termsAgreed.value = !isAllTrue
+  privacyAgreed.value = !isAllTrue
+  marketingAgreed.value = !isAllTrue
   allAgreed.value = !isAllTrue
 }
 
 const checkAllAgreed = () => {
-  allAgreed.value = Object.values(agreements.value).every(value => value === true)
+  allAgreed.value = termsAgreed.value && privacyAgreed.value && marketingAgreed.value
 }
 </script>
 
@@ -81,6 +132,7 @@ const checkAllAgreed = () => {
                 v-model="userId"
                 type="text"
                 required
+                @input="validateUserId"
                 class="appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600
                        placeholder-gray-500 text-gray-900 dark:text-white
                        focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500
@@ -88,6 +140,7 @@ const checkAllAgreed = () => {
                        transition-colors duration-200"
                 placeholder="6자 이상의 영문 혹은 숫자 조합"
               />
+              <p v-if="userIdError" class="mt-1 text-sm text-red-500">{{ userIdError }}</p>
             </div>
 
             <!-- 비밀번호 -->
@@ -135,6 +188,22 @@ const checkAllAgreed = () => {
                        dark:bg-gray-700 dark:placeholder-gray-400
                        transition-colors duration-200"
                 placeholder="이름"
+              />
+            </div>
+
+            <!-- 이메일 -->
+            <div class="relative">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">이메일</label>
+              <input
+                v-model="email"
+                type="email"
+                required
+                class="appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-600
+                       placeholder-gray-500 text-gray-900 dark:text-white
+                       focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500
+                       dark:bg-gray-700 dark:placeholder-gray-400
+                       transition-colors duration-200"
+                placeholder="이메일 주소"
               />
             </div>
 
@@ -190,7 +259,7 @@ const checkAllAgreed = () => {
               <div class="flex items-center">
                 <input
                   type="checkbox"
-                  v-model="agreements.terms"
+                  v-model="termsAgreed"
                   @change="checkAllAgreed"
                   required
                   class="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded
@@ -204,7 +273,7 @@ const checkAllAgreed = () => {
               <div class="flex items-center">
                 <input
                   type="checkbox"
-                  v-model="agreements.privacy"
+                  v-model="privacyAgreed"
                   @change="checkAllAgreed"
                   required
                   class="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded
@@ -218,7 +287,7 @@ const checkAllAgreed = () => {
               <div class="flex items-center">
                 <input
                   type="checkbox"
-                  v-model="agreements.marketing"
+                  v-model="marketingAgreed"
                   @change="checkAllAgreed"
                   class="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded
                          dark:border-gray-600 dark:bg-gray-700"
@@ -227,32 +296,24 @@ const checkAllAgreed = () => {
                   마케팅 수신 동의 (선택)
                 </label>
               </div>
-              
-              <div class="flex items-center">
-                <input
-                  type="checkbox"
-                  v-model="agreements.age"
-                  @change="checkAllAgreed"
-                  required
-                  class="h-4 w-4 text-orange-500 focus:ring-orange-500 border-gray-300 rounded
-                         dark:border-gray-600 dark:bg-gray-700"
-                />
-                <label class="ml-2 block text-sm text-gray-500 dark:text-gray-400">
-                  본인은 만 14세 이상입니다. (필수)
-                </label>
-              </div>
             </div>
           </div>
 
           <button
             type="submit"
+            :disabled="isLoading"
             class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg
                    text-sm font-medium text-white bg-orange-500 hover:bg-orange-600
                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500
-                   transition-colors duration-200"
+                   transition-colors duration-200
+                   disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            회원가입
+            {{ isLoading ? '처리중...' : '회원가입' }}
           </button>
+          
+          <p v-if="signupError" class="mt-2 text-sm text-red-500 text-center">
+            {{ signupError }}
+          </p>
         </form>
       </div>
     </div>
