@@ -19,6 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+
 public class GeoLocationController {
 
     @Value("${naver.api.client.id}")
