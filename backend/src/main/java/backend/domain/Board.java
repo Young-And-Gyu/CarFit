@@ -35,4 +35,12 @@ public class Board {
         this.author = author;
         this.createdAt = new Date();
     }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
+    }
 } 
