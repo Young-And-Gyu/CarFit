@@ -23,16 +23,18 @@ public class SignupRequestDto {
     private boolean privacyAgreed;
     private boolean marketingAgreed;
 
-    public User toEntity(){
+
+
+    public User toEntity(String encodedPassword,String encodedAddress,String encodedEmail) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
         LocalDate parsedBirthDate = LocalDate.parse(this.birthDate, formatter);
 
         return new User(
                 userId,
-                password,
+                encodedPassword,
                 name,
-                email,
-                address,
+                encodedEmail,
+                encodedAddress,
                 parsedBirthDate,
                 termsAgreed,
                 privacyAgreed,
